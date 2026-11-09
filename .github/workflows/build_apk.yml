@@ -1,0 +1,50 @@
+name: Build MOUNIX SCHOOL Android APK
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build-android-apk:
+    name: Build Release APK (MOUNIX SCHOOL)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Prepare Android Platform & Build APK
+        shell: bash
+        run: |
+          if [ -f "mounix_school_flutter/pubspec.yaml" ]; then
+            cd mounix_school_flutter
+          fi
+          flutter create --platforms=android --org dz.mounixschool --project-name mounix_school .
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          if ! grep -q "android.permission.INTERNET" "$MANIFEST"; then
+            sed -i 's/<application/<uses-permission android:name="android.permission.INTERNET"\/>\n    <application android:usesCleartextTraffic="true"/' "$MANIFEST"
+          fi
+          flutter pub get
+          flutter build apk --release --no-tree-shake-icons
+          mkdir -p "$GITHUB_WORKSPACE/dist"
+          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/dist/MOUNIX_SCHOOL_v1.0.0.apk"
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MOUNIX-SCHOOL-Android-APK
+          path: dist/MOUNIX_SCHOOL_v1.0.0.apk
+          if-no-files-found: error
